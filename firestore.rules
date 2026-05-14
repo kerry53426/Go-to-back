@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) && get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.role == 'admin'; }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    match /userRoles/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    function isValidRegistration(data) {
+       return data.keys().hasAll(['userId', 'userName', 'date', 'goingDown', 'goingUp', 'stayingZhudong', 'timestamp']) &&
+              data.keys().size() <= 8 &&
+              data.userId == request.auth.uid &&
+              data.userName is string && data.userName.size() <= 100 &&
+              data.date is string && data.date.size() == 10 && data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+              data.goingDown is bool &&
+              data.goingUp is bool &&
+              data.stayingZhudong is bool &&
+              data.timestamp is number &&
+              (data.keys().hasAll(['note']) ? (data.note is string && data.note.size() <= 500) : true);
+    }
+    
+    match /registrations/{registrationId} {
+      // Employees need to see each other's schedules, especially the driver
+      allow read: if isSignedIn(); 
+      
+      // Create if they are inserting their own record
+      allow create: if isSignedIn() && isValidRegistration(incoming());
+      
+      // Update if they own it
+      allow update: if isSignedIn() && 
+                    existing().userId == request.auth.uid && 
+                    incoming().userId == request.auth.uid && // immutable userId
+                    isValidRegistration(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['goingDown', 'goingUp', 'stayingZhudong', 'note', 'timestamp', 'userName']);
+                    
+      // Delete if they own it
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}

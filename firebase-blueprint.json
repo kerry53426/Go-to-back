@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "description": "Daily registration for an employee.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string", "description": "Display name of the user" },
+        "date": { "type": "string", "description": "YYYY-MM-DD" },
+        "goingDown": { "type": "boolean" },
+        "goingUp": { "type": "boolean" },
+        "stayingZhudong": { "type": "boolean" },
+        "note": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["userId", "userName", "date", "goingDown", "goingUp", "stayingZhudong", "timestamp"]
+    },
+    "UserRole": {
+      "title": "UserRole",
+      "description": "User profile with role.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["employee", "driver", "admin"] },
+        "displayName": { "type": "string" }
+      },
+      "required": ["role", "displayName"]
+    }
+  },
+  "firestore": {
+    "registrations/{registrationId}": {
+      "schema": { "$ref": "#/entities/Registration" },
+      "description": "Stores daily shift movements."
+    },
+    "userRoles/{userId}": {
+       "schema": { "$ref": "#/entities/UserRole" },
+       "description": "Stores user roles, restricted write."
+    }
+  }
+}
